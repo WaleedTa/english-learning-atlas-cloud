@@ -1,0 +1,32 @@
+{
+  "name": "English Learning Atlas Cloud",
+  "update_frequency": "weekly",
+  "schedule_utc": "0 6 * * 1",
+  "timezone": "Asia/Baghdad",
+  "scope": "all_sources",
+  "approval_policy": "human_review_required",
+  "auto_publish": false,
+  "sources": {
+    "active": [
+      "OpenAlex"
+    ],
+    "planned": [
+      "Crossref",
+      "ERIC",
+      "GitHub",
+      "universities",
+      "websites",
+      "forums"
+    ]
+  },
+  "research_queries": [
+    "English language teaching methods",
+    "second language acquisition meta analysis",
+    "English pronunciation training randomized trial",
+    "spaced repetition vocabulary learning",
+    "computer assisted language learning systematic review",
+    "AI language tutoring English learning",
+    "task based language teaching effectiveness",
+    "extensive reading English language learners"
+  ]
+}
