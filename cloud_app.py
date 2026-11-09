@@ -6,6 +6,8 @@ import zipfile
 import streamlit as st
 from atlas_supabase import AtlasClient, AtlasAPIError
 
+st.set_page_config(page_title="English Learning Atlas Cloud", page_icon="🌐", layout="wide")
+
 LANGUAGE_OPTIONS = {"العربية": "ar", "English": "en"}
 language_choice = st.sidebar.selectbox("اللغة / Language", list(LANGUAGE_OPTIONS), key="atlas_language")
 LANG = LANGUAGE_OPTIONS[language_choice]
@@ -43,7 +45,6 @@ def display_code(value):
     pair = LABELS.get(value)
     return pair[0 if LANG == "ar" else 1] if pair else str(value or "")
 
-st.set_page_config(page_title="English Learning Atlas Cloud", page_icon="🌐", layout="wide")
 st.title("🌐 English Learning Atlas Cloud")
 st.caption(tr("أطلس عالمي لتعليم الإنجليزية | مكتبة عامة ومراجعة بشرية خاصة", "Global English-learning research atlas | Public library and private review"))
 st.info(tr("المصادر الآلية: OpenAlex وCrossref وEurope PMC. البيانات المكتشفة أولية وليست إثباتاً علمياً للفعالية.", "Automated sources: OpenAlex, Crossref and Europe PMC. Discovery metadata is preliminary and does not prove effectiveness."))
