@@ -140,3 +140,9 @@ class AtlasClient:
         return self._request("POST", "/rest/v1/atlas_evidence_reviews", token=token,
                              params={"on_conflict": "discovery_id"}, payload=payload,
                              prefer="resolution=merge-duplicates,return=minimal")
+
+    def list_evidence_reviews(self, token, limit=2000):
+        """Private reviewed evidence only; Supabase RLS enforces admin access."""
+        return self._request("GET", "/rest/v1/atlas_evidence_reviews", token=token,
+                             params={"select": "discovery_id,study_design,evidence_quality,outcome_direction,learner_population,intervention,comparator,outcomes,effect_size,limitations,source_checked,review_notes,updated_at",
+                                     "order": "updated_at.desc", "limit": str(limit)})
