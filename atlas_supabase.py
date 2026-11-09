@@ -80,3 +80,46 @@ class AtlasClient:
                              payload={"p_id": resource_id, "p_status": status,
                                       "p_quality": quality, "p_relevance": relevance,
                                       "p_notes": notes.strip()})
+
+    def list_discoveries(self, token=None, limit=1000):
+        return self._request("GET", "/rest/v1/atlas_discoveries", token=token,
+                             params={"select": "id,title,source,kind,url,year,doi,skills,methods,frameworks,evidence_status,review_status,limitations",
+                                     "order": "created_at.desc", "limit": str(limit)})
+
+    def import_discoveries(self, records, token):
+        if len(records) > 3000:
+            raise AtlasAPIError("Maximum 3000 records per import")
+        existing = {r["id"] for r in self._request("GET", "/rest/v1/atlas_discoveries",
+                   token=token, params={"select": "id", "limit": "10000"})}
+        pending = []
+        for record in records:
+            rid = record.get("record_id")
+            if not isinstance(rid, str) or not rid or rid in existing:
+                continue
+            title, url = record.get("title"), record.get("url")
+            if not isinstance(title, str) or not isinstance(url, str) or not url.startswith("https://"):
+                continue
+            classification = record.get("classification") or {}
+            if not isinstance(classification, dict):
+                classification = {}
+            tags = {k: [str(v)[:100] for v in (classification.get(k) or [])[:20]]
+                    for k in ("skills", "methods", "frameworks")}
+            pending.append({
+                "id": rid[:128], "source": str(record.get("source") or "unknown")[:100],
+                "title": title[:1500], "url": url[:2000],
+                "doi": str(record.get("doi") or "")[:500],
+                "year": int(record["year"]) if str(record.get("year") or "").isdigit() else None,
+                "kind": str(record.get("kind") or "research")[:100],
+                "authors": str(record.get("authors") or "")[:1200],
+                "abstract": str(record.get("abstract") or "")[:4000],
+                "citation_count": int(record["citations"]) if str(record.get("citations") or "").isdigit() else None,
+                "search_query": str(record.get("query") or "")[:500],
+                "skills": tags["skills"], "methods": tags["methods"], "frameworks": tags["frameworks"],
+                "evidence_status": "unassessed", "review_status": "pending",
+                "limitations": str(record.get("limitations") or "Metadata only")[:1000],
+            })
+            existing.add(rid)
+        for start in range(0, len(pending), 50):
+            self._request("POST", "/rest/v1/atlas_discoveries", token=token,
+                          payload=pending[start:start + 50], prefer="return=minimal")
+        return len(pending)
