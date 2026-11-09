@@ -104,6 +104,47 @@ with admin_tab:
             if discoveries:
                 st.dataframe(discoveries, width="stretch", hide_index=True)
             st.caption("التصنيف أولي؛ لا يُسمح باعتبار هذه السجلات أدلة مثبتة على الفعالية دون مراجعة علمية.")
+            if discoveries:
+                st.subheader("التحليل العلمي المنظم")
+                selected_discovery = st.selectbox("اختر اكتشافاً لتحليل أدلته", discoveries,
+                                                   format_func=lambda r: (r.get("title") or "")[:100],
+                                                   key="evidence_selected")
+                st.markdown("**المصدر الأصلي:** " + selected_discovery.get("source", ""))
+                st.link_button("فتح المصدر والتحقق من محتواه", selected_discovery["url"])
+                st.caption("لا تعتمد على العنوان أو عدد الاستشهادات وحدهما لإثبات الفعالية.")
+                saved_review = api.get_evidence_review(selected_discovery["id"], token) or {}
+                design_options = ["not_assessed","randomized_trial","quasi_experiment","observational",
+                                  "systematic_review","meta_analysis","qualitative","descriptive","not_applicable","other"]
+                quality_options = ["not_assessed","very_low","low","moderate","high"]
+                direction_options = ["not_assessed","positive","negative","mixed","null","inconclusive","not_applicable"]
+                with st.form("structured_evidence_review"):
+                    design = st.selectbox("تصميم الدراسة", design_options,
+                                         index=design_options.index(saved_review.get("study_design","not_assessed")))
+                    quality = st.selectbox("جودة الأدلة", quality_options,
+                                          index=quality_options.index(saved_review.get("evidence_quality","not_assessed")))
+                    direction = st.selectbox("اتجاه النتائج", direction_options,
+                                            index=direction_options.index(saved_review.get("outcome_direction","not_assessed")))
+                    population = st.text_area("الفئة التعليمية والسياق", value=saved_review.get("learner_population",""))
+                    intervention = st.text_area("التدخل أو الطريقة التعليمية", value=saved_review.get("intervention",""))
+                    comparator = st.text_area("مجموعة المقارنة أو البديل", value=saved_review.get("comparator",""))
+                    outcomes = st.text_area("المخرجات المقاسة والمدة", value=saved_review.get("outcomes",""))
+                    effect = st.text_input("حجم الأثر وعدم اليقين (إن توفر)", value=saved_review.get("effect_size",""))
+                    limitations = st.text_area("التحيز والقيود والتعارضات", value=saved_review.get("limitations",""))
+                    checked = st.checkbox("تحققت من النص أو المصدر الأصلي", value=saved_review.get("source_checked",False))
+                    notes = st.text_area("ملاحظات المراجع", value=saved_review.get("review_notes",""))
+                    save_evidence = st.form_submit_button("حفظ التقييم العلمي الخاص")
+                if save_evidence:
+                    try:
+                        api.save_evidence_review(selected_discovery["id"], user_id, token, {
+                            "study_design": design, "evidence_quality": quality, "outcome_direction": direction,
+                            "learner_population": population, "intervention": intervention, "comparator": comparator,
+                            "outcomes": outcomes, "effect_size": effect, "limitations": limitations,
+                            "source_checked": checked, "review_notes": notes})
+                        st.success("حُفظ التقييم العلمي في قاعدة البيانات الخاصة.")
+                        st.rerun()
+                    except AtlasAPIError as exc:
+                        st.error(str(exc))
+
             st.subheader("مراجعة سجل")
             if all_rows:
                 options = {r["id"]: r for r in all_rows}
