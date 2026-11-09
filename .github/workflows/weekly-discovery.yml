@@ -1,0 +1,29 @@
+name: Weekly discovery - review required
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'requests>=2.31'
+      - run: python scripts/weekly_discovery.py
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.ATLAS_PR_TOKEN || github.token }}
+          branch: automation/weekly-discovery
+          delete-branch: true
+          commit-message: 'chore: refresh research review queue'
+          title: 'Review weekly discovered research candidates'
+          body: |
+            Automated metadata discovery only. Human review is required before acceptance.
+            Verify provenance, duplication, licensing, relevance and scientific quality.
+          add-paths: review_queue/openalex_candidates.csv
