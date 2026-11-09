@@ -1,0 +1,28 @@
+name: Phase 4 multi-source discovery (review required)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install requests
+        run: python -m pip install 'requests>=2.31,<3'
+      - name: Collect public research metadata
+        run: python research_engine.py --output research_output --per-query 8 --delay 0.7
+      - name: Upload pending candidates and coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4-research-candidates
+          path: research_output/
+          retention-days: 30
+          if-no-files-found: warn
