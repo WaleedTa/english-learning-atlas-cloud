@@ -1,13 +1,15 @@
 """Public catalog and private Supabase moderation console."""
 import csv
 import io
+import json
+import zipfile
 import streamlit as st
 from atlas_supabase import AtlasClient, AtlasAPIError
 
 st.set_page_config(page_title="English Learning Atlas Cloud", page_icon="🌐", layout="wide")
 st.title("🌐 English Learning Atlas Cloud")
 st.caption("أطلس عالمي لتعليم الإنجليزية | مكتبة عامة ومراجعة بشرية خاصة")
-st.info("المصدر الآلي الحالي OpenAlex فقط. القبول يعني مراجعة بشرية مسجلة، وليس إثبات فعالية علمية تلقائياً.")
+st.info("المصادر الآلية: OpenAlex وCrossref وEurope PMC. البيانات المكتشفة أولية وليست إثباتاً علمياً للفعالية.")
 
 try:
     url = st.secrets.get("SUPABASE_URL", "")
@@ -77,6 +79,31 @@ with admin_tab:
                     st.rerun()
                 except (UnicodeDecodeError, csv.Error, AtlasAPIError) as exc:
                     st.error(str(exc))
+            st.subheader("اكتشافات المرحلة الرابعة")
+            st.caption("ارفع ZIP الناتج من GitHub Actions، وستُحفظ السجلات بحالة pending فقط.")
+            discovery_zip = st.file_uploader("ملف phase4-research-candidates.zip", type=["zip"], key="phase4_zip")
+            if discovery_zip is not None and st.button("استيراد اكتشافات المرحلة الرابعة دون نشر"):
+                try:
+                    if discovery_zip.size > 15 * 1024 * 1024:
+                        raise ValueError("الملف أكبر من الحد المسموح")
+                    with zipfile.ZipFile(io.BytesIO(discovery_zip.getvalue())) as archive:
+                        files = [n for n in archive.namelist() if n.split("/")[-1] == "candidates.jsonl"]
+                        if len(files) != 1:
+                            raise ValueError("لم يُعثر على candidates.jsonl واحد داخل الأرشيف")
+                        info = archive.getinfo(files[0])
+                        if info.file_size > 12 * 1024 * 1024:
+                            raise ValueError("حجم بيانات الأرشيف غير مسموح")
+                        records = [json.loads(line) for line in archive.read(files[0]).decode("utf-8").splitlines() if line.strip()]
+                    count = api.import_discoveries(records, token)
+                    st.success(f"تم حفظ {count} اكتشافاً جديداً بانتظار المراجعة البشرية.")
+                    st.rerun()
+                except (ValueError, UnicodeDecodeError, zipfile.BadZipFile, json.JSONDecodeError, AtlasAPIError) as exc:
+                    st.error("تعذر الاستيراد: " + str(exc))
+            discoveries = api.list_discoveries(token=token)
+            st.metric("اكتشافات المرحلة الرابعة المتاحة", len(discoveries))
+            if discoveries:
+                st.dataframe(discoveries, width="stretch", hide_index=True)
+            st.caption("التصنيف أولي؛ لا يُسمح باعتبار هذه السجلات أدلة مثبتة على الفعالية دون مراجعة علمية.")
             st.subheader("مراجعة سجل")
             if all_rows:
                 options = {r["id"]: r for r in all_rows}
