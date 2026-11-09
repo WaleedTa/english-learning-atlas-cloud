@@ -123,3 +123,20 @@ class AtlasClient:
             self._request("POST", "/rest/v1/atlas_discoveries", token=token,
                           payload=pending[start:start + 50], prefer="return=minimal")
         return len(pending)
+
+    def get_evidence_review(self, discovery_id, token):
+        rows = self._request("GET", "/rest/v1/atlas_evidence_reviews", token=token,
+                             params={"select": "*", "discovery_id": "eq." + discovery_id, "limit": "1"})
+        return rows[0] if rows else None
+
+    def save_evidence_review(self, discovery_id, reviewer_id, token, fields):
+        allowed = ("study_design", "evidence_quality", "outcome_direction", "learner_population",
+                   "intervention", "comparator", "outcomes", "effect_size", "limitations",
+                   "source_checked", "review_notes")
+        payload = {"discovery_id": discovery_id, "reviewer_id": reviewer_id}
+        for field in allowed:
+            if field in fields:
+                payload[field] = fields[field] if field == "source_checked" else str(fields[field])[:4000]
+        return self._request("POST", "/rest/v1/atlas_evidence_reviews", token=token,
+                             params={"on_conflict": "discovery_id"}, payload=payload,
+                             prefer="resolution=merge-duplicates,return=minimal")
