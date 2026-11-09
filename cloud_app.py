@@ -145,6 +145,54 @@ with admin_tab:
                     except AtlasAPIError as exc:
                         st.error(str(exc))
 
+            st.subheader("مقارنة الأدلة العلمية — المرحلة الخامسة")
+            st.caption("هذه المقارنة تصف التقييمات البشرية المحفوظة فقط؛ لا تستنتج الفعالية آلياً ولا تدمج أحجام الأثر إحصائياً.")
+            reviews = api.list_evidence_reviews(token)
+            st.metric("دراسات ذات تقييم علمي", len(reviews))
+            if reviews:
+                discovery_by_id = {d["id"]: d for d in discoveries}
+                comparison_rows = []
+                for review in reviews:
+                    discovery = discovery_by_id.get(review["discovery_id"], {})
+                    comparison_rows.append({
+                        "العنوان": discovery.get("title", review["discovery_id"]),
+                        "المصدر": discovery.get("source", ""),
+                        "السنة": discovery.get("year"),
+                        "المنهج": review["study_design"],
+                        "جودة الأدلة": review["evidence_quality"],
+                        "اتجاه النتيجة": review["outcome_direction"],
+                        "المهارات": ", ".join(discovery.get("skills") or []),
+                        "الطرق": ", ".join(discovery.get("methods") or []),
+                        "التدخل": review.get("intervention") or "",
+                        "المخرجات": review.get("outcomes") or "",
+                        "حجم الأثر": review.get("effect_size") or "",
+                        "تحقق من المصدر": bool(review.get("source_checked")),
+                        "رابط المصدر": discovery.get("url", ""),
+                    })
+                directions = sorted({r["اتجاه النتيجة"] for r in comparison_rows})
+                qualities = sorted({r["جودة الأدلة"] for r in comparison_rows})
+                selected_directions = st.multiselect("تصفية حسب اتجاه النتائج", directions, default=directions)
+                selected_qualities = st.multiselect("تصفية حسب جودة الأدلة", qualities, default=qualities)
+                search_comparison = st.text_input("بحث في الدراسة أو التدخل أو المهارة")
+                filtered = [r for r in comparison_rows
+                            if r["اتجاه النتيجة"] in selected_directions
+                            and r["جودة الأدلة"] in selected_qualities
+                            and search_comparison.casefold() in
+                            (r["العنوان"] + " " + r["التدخل"] + " " + r["المهارات"] + " " + r["الطرق"]).casefold()]
+                st.metric("نتائج المقارنة بعد التصفية", len(filtered))
+                st.dataframe(filtered, hide_index=True, width="stretch",
+                             column_config={"رابط المصدر": st.column_config.LinkColumn("رابط المصدر")})
+                if filtered:
+                    import pandas as pd
+                    counts = pd.DataFrame(filtered).groupby(["جودة الأدلة", "اتجاه النتيجة"]).size().reset_index(name="عدد التقييمات")
+                    st.bar_chart(counts, x="جودة الأدلة", y="عدد التقييمات", color="اتجاه النتيجة")
+                    export_csv = pd.DataFrame(filtered).to_csv(index=False).encode("utf-8-sig")
+                    st.download_button("تنزيل المقارنة CSV", export_csv, file_name="atlas-evidence-comparison.csv",
+                                       mime="text/csv")
+                st.info("ملاحظة: وجود تقييم واحد أو عدة تقييمات إيجابية لا يثبت أفضلية طريقة تعليمية. يجب مراجعة قابلية المقارنة والتحيز وحجم الأثر.")
+            else:
+                st.info("لا توجد تقييمات علمية محفوظة للمقارنة بعد.")
+
             st.subheader("مراجعة سجل")
             if all_rows:
                 options = {r["id"]: r for r in all_rows}
