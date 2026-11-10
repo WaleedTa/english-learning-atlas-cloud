@@ -102,8 +102,12 @@ class AtlasClient:
             classification = record.get("classification") or {}
             if not isinstance(classification, dict):
                 classification = {}
-            tags = {k: [str(v)[:100] for v in (classification.get(k) or [])[:20]]
-                    for k in ("skills", "methods", "frameworks")}
+            tags = {}
+            for k in ("skills", "methods", "frameworks"):
+                values = classification.get(k)
+                if not isinstance(values, list):
+                    values = []
+                tags[k] = [str(v)[:100] for v in values[:20] if isinstance(v, str)]
             pending.append({
                 "id": rid[:128], "source": str(record.get("source") or "unknown")[:100],
                 "title": title[:1500], "url": url[:2000],

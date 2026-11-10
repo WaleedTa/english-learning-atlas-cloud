@@ -46,6 +46,10 @@ def display_code(value):
     pair = LABELS.get(value)
     return pair[0 if LANG == "ar" else 1] if pair else str(value or "")
 
+def safe_option_index(options, value, fallback=0):
+    """Legacy database values should not crash Streamlit selectboxes."""
+    return options.index(value) if value in options else fallback
+
 st.title("🌐 English Learning Atlas Cloud")
 st.caption(tr("أطلس عالمي لتعليم الإنجليزية | مكتبة عامة ومراجعة بشرية خاصة", "Global English-learning research atlas | Public library and private review"))
 st.info(tr("المصادر الآلية: OpenAlex وCrossref وEurope PMC. البيانات المكتشفة أولية وليست إثباتاً علمياً للفعالية.", "Automated sources: OpenAlex, Crossref and Europe PMC. Discovery metadata is preliminary and does not prove effectiveness."))
@@ -172,11 +176,11 @@ with admin_tab:
                 direction_options = ["not_assessed","positive","negative","mixed","null","inconclusive","not_applicable"]
                 with st.form("structured_evidence_review"):
                     design = st.selectbox(tr("تصميم الدراسة", "Study design"), design_options,
-                                         index=design_options.index(saved_review.get("study_design","not_assessed")), format_func=display_code)
+                                         index=safe_option_index(design_options, saved_review.get("study_design")), format_func=display_code)
                     quality = st.selectbox(tr("جودة الأدلة", "Evidence quality"), quality_options,
-                                          index=quality_options.index(saved_review.get("evidence_quality","not_assessed")), format_func=display_code)
+                                          index=safe_option_index(quality_options, saved_review.get("evidence_quality")), format_func=display_code)
                     direction = st.selectbox(tr("اتجاه النتائج", "Outcome direction"), direction_options,
-                                            index=direction_options.index(saved_review.get("outcome_direction","not_assessed")), format_func=display_code)
+                                            index=safe_option_index(direction_options, saved_review.get("outcome_direction")), format_func=display_code)
                     population = st.text_area(tr("الفئة التعليمية والسياق", "Learner population and context"), value=saved_review.get("learner_population",""))
                     intervention = st.text_area(tr("التدخل أو الطريقة التعليمية", "Intervention / teaching method"), value=saved_review.get("intervention",""))
                     comparator = st.text_area(tr("مجموعة المقارنة أو البديل", "Comparator / alternative"), value=saved_review.get("comparator",""))
@@ -202,13 +206,16 @@ with admin_tab:
             st.caption(tr("مقارنة وصفية للتقييمات البشرية، وليست تحليلاً تلوياً أو حكماً آلياً بالفعالية.",
                           "Descriptive human assessments; not a meta-analysis or automated effectiveness verdict."))
             reviews = api.list_evidence_reviews(token)
-            discovery_by_id = {d["id"]: d for d in discoveries}
+            discovery_by_id = {d["id"]: d for d in discoveries if d.get("id")}
             comparison_rows = []
             for review in reviews:
-                d = discovery_by_id.get(review["discovery_id"], {})
+                discovery_id = review.get("discovery_id")
+                if not discovery_id:
+                    continue
+                d = discovery_by_id.get(discovery_id, {})
                 comparison_rows.append({
-                    "discovery_id": review["discovery_id"],
-                    "title": d.get("title") or review["discovery_id"],
+                    "discovery_id": discovery_id,
+                    "title": d.get("title") or discovery_id,
                     "source": d.get("source") or "",
                     "year": d.get("year"),
                     "design": review.get("study_design") or "not_assessed",
@@ -498,9 +505,9 @@ with admin_tab:
                 qualities = ["not_assessed", "low", "moderate", "high"]
                 relevances = ["not_assessed", "low", "medium", "high"]
                 with st.form("review_record"):
-                    status = st.selectbox(tr("القرار", "Decision"), statuses, index=statuses.index(item["review_status"]), format_func=display_code)
-                    quality = st.selectbox(tr("قوة الأدلة", "Strength of evidence"), qualities, index=qualities.index(item["evidence_quality"]), format_func=display_code)
-                    relevance = st.selectbox(tr("صلة الدراسة", "Study relevance"), relevances, index=relevances.index(item["relevance"]), format_func=display_code)
+                    status = st.selectbox(tr("القرار", "Decision"), statuses, index=safe_option_index(statuses, item.get("review_status")), format_func=display_code)
+                    quality = st.selectbox(tr("قوة الأدلة", "Strength of evidence"), qualities, index=safe_option_index(qualities, item.get("evidence_quality")), format_func=display_code)
+                    relevance = st.selectbox(tr("صلة الدراسة", "Study relevance"), relevances, index=safe_option_index(relevances, item.get("relevance")), format_func=display_code)
                     notes = st.text_area(tr("مبررات القرار والمنهج والقيود", "Decision rationale, methodology and limitations"), value=item.get("review_notes") or "")
                     save = st.form_submit_button(tr("حفظ المراجعة في قاعدة البيانات", "Save review to database"))
                 if save:
