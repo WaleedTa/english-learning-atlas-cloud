@@ -257,7 +257,6 @@ with admin_tab:
                 sort_choice = st.selectbox(tr("ترتيب النتائج", "Sort results"),
                     ["recent", "title", "year"], format_func=lambda v: {
                         "recent": tr("حسب ترتيب التقييمات", "Review order"),
-                        "discovery_id": tr("معرف البحث", "Discovery ID"),
                         "title": tr("العنوان", "Title"),
                         "year": tr("السنة الأحدث", "Newest year")}[v], key="compare_sort")
                 needle = search.casefold().strip()
