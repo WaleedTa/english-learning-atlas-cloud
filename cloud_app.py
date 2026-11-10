@@ -283,6 +283,7 @@ with admin_tab:
                 if filtered:
                     import pandas as pd
                     headings = {
+                        "discovery_id": tr("معرف البحث", "Discovery ID"),
                         "title": tr("العنوان", "Title"),
                         "source": tr("المصدر", "Source"),
                         "year": tr("السنة", "Year"),
