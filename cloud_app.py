@@ -436,6 +436,55 @@ with admin_tab:
                     except AtlasAPIError as exc:
                         st.error(str(exc))
 
+            st.subheader(tr("سجل الأدلة الواقعية — إدخال تجريبي", "Real-world evidence — manual pilot"))
+            st.caption(tr("الإدخال يدوي من مصادر تمت مراجعة صلاحية الوصول إليها. لا جمع آلي ولا نشر أو اعتماد للأدلة.",
+                          "Manual entry from access-reviewed sources only. No scraping, publication or automatic approval."))
+            experience_rows = api.list_experience_evidence(token)
+            st.metric(tr("أدلة واقعية غير معتمدة", "Unapproved real-world evidence"), len(experience_rows))
+            if experience_rows:
+                st.dataframe([{
+                    tr("العنوان", "Title"): r["item_title"],
+                    tr("النوع", "Type"): r["evidence_kind"],
+                    tr("المقتطف", "Excerpt"): r["excerpt"],
+                    tr("التقييم", "Rating"): r["rating"],
+                    tr("اللغة", "Language"): r["original_language"],
+                    tr("الحالة", "Status"): r["confidence_status"],
+                    tr("الرابط", "URL"): r["item_url"],
+                } for r in experience_rows], width="stretch", hide_index=True)
+            permitted_sources = [r for r in registry if r["access_status"] == "permitted"]
+            with st.expander(tr("إضافة دليل واقعي للمراجعة", "Add real-world evidence for review")):
+                if not permitted_sources:
+                    st.info(tr("لا توجد مصادر ذات صلاحية وصول مراجعة ومسموحة؛ سجّل مصدراً أولاً وحدد حالة الوصول المناسبة بعد التحقق.",
+                               "No reviewed permitted sources available. Register a source and verify its access permission first."))
+                else:
+                    with st.form("manual_experience_create"):
+                        chosen_source = st.selectbox(tr("المصدر المسجل", "Registered source"),
+                            permitted_sources, format_func=lambda r: r["name"])
+                        evidence_title = st.text_input(tr("عنوان الدليل", "Evidence title"))
+                        evidence_url = st.text_input(tr("الرابط المباشر للمادة", "Direct item URL"))
+                        evidence_kind = st.selectbox(tr("صنف الدليل", "Evidence type"), [
+                            "user_review","institutional_report","measured_outcome",
+                            "community_discussion","product_statement","other"])
+                        excerpt = st.text_area(tr("مقتطف مختصر من المصدر", "Short original-source excerpt"),
+                            max_chars=1500)
+                        evidence_lang = st.selectbox(tr("اللغة", "Language"),
+                            ["unknown","ar","en","multilingual"])
+                        has_rating = st.checkbox(tr("يوجد تقييم عددي من 0 إلى 5", "Include 0–5 rating"))
+                        rating = st.number_input(tr("التقييم", "Rating"),min_value=0.0,max_value=5.0,step=0.5) if has_rating else None
+                        submitted_evidence = st.form_submit_button(tr("حفظ كدليل غير معتمد", "Save as unverified evidence"))
+                    if submitted_evidence:
+                        try:
+                            api.create_experience_evidence(token, user_id, chosen_source, {
+                                "item_title": evidence_title, "item_url": evidence_url,
+                                "evidence_kind": evidence_kind, "excerpt": excerpt,
+                                "original_language": evidence_lang, "rating": rating,
+                            })
+                            st.success(tr("حُفظ الدليل بانتظار المراجعة العلمية.",
+                                          "Evidence saved as unverified, pending review."))
+                            st.rerun()
+                        except AtlasAPIError as exc:
+                            st.error(str(exc))
+
             st.subheader(tr("مراجعة سجل", "Review a resource"))
             if all_rows:
                 options = {r["id"]: r for r in all_rows}
