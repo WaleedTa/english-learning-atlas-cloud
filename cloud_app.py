@@ -350,6 +350,92 @@ with admin_tab:
                 st.info(tr("لا توجد تقييمات علمية محفوظة للمقارنة بعد.",
                            "No scientific assessments saved yet."))
 
+            st.subheader(tr("سجل مصادر التجارب والمراجعات الواقعية — المرحلة السابعة",
+                              "Real-world reviews and experience sources — Phase 7"))
+            st.caption(tr("سجل إداري للمصادر المرشحة فقط. لا توجد عملية جمع آلي مفعّلة؛ يجب مراجعة أذونات كل مصدر.",
+                          "Private candidate source registry only. Automated collection is disabled; source permissions require review."))
+            category_labels = {
+                "academic": tr("أبحاث أكاديمية", "Academic research"),
+                "community": tr("مجتمعات ومنتديات", "Community / forum"),
+                "app_reviews": tr("تقييمات التطبيقات", "App reviews"),
+                "institution": tr("جامعة أو معهد", "University / institute"),
+                "platform": tr("منصة تعليمية", "Learning platform"),
+                "project": tr("مشروع تقني", "Technical project"),
+                "user_data": tr("بيانات مستخدمين مصرح بها", "Authorized user data"),
+                "report": tr("تقرير", "Report"),
+                "other": tr("مصدر آخر", "Other"),
+            }
+            access_labels = {
+                "unreviewed": tr("لم تراجع الصلاحية", "Access not reviewed"),
+                "permitted": tr("مسموح بعد التحقق", "Permitted after verification"),
+                "restricted": tr("مقيد", "Restricted"),
+                "blocked": tr("ممنوع", "Blocked"),
+            }
+            collection_labels = {
+                "manual_review": tr("مراجعة يدوية", "Manual review"),
+                "official_api": tr("واجهة رسمية", "Official API"),
+                "authorized_export": tr("تصدير مصرح به", "Authorized export"),
+                "open_dataset": tr("بيانات مفتوحة", "Open dataset"),
+            }
+            evidence_labels = {
+                "academic_research": tr("دليل بحثي", "Academic evidence"),
+                "self_report": tr("تجربة ذاتية", "Self-reported experience"),
+                "observed_outcome": tr("نتيجة تعليمية مقاسة", "Measured learning outcome"),
+                "institutional_claim": tr("ادعاء مؤسسة", "Institutional claim"),
+                "product_claim": tr("ادعاء منتج", "Product claim"),
+                "unverified_experience": tr("تجربة غير متحقق منها", "Unverified experience"),
+            }
+            registry = api.list_source_registry(token)
+            left_reg, right_reg = st.columns(2)
+            left_reg.metric(tr("المصادر المسجلة", "Registered sources"), len(registry))
+            right_reg.metric(tr("مصادر لم تراجع صلاحيتها", "Sources awaiting access review"),
+                             sum(r["access_status"] == "unreviewed" for r in registry))
+            if registry:
+                st.dataframe([{
+                    tr("الاسم", "Name"): r["name"],
+                    tr("الرابط", "URL"): r["url"],
+                    tr("النوع", "Category"): category_labels.get(r["category"], r["category"]),
+                    tr("صلاحية الوصول", "Access status"): access_labels.get(r["access_status"], r["access_status"]),
+                    tr("طريقة الجمع المقترحة", "Proposed collection method"): collection_labels.get(r["collection_method"], r["collection_method"]),
+                    tr("نوع الدليل", "Evidence type"): evidence_labels.get(r["evidence_class"], r["evidence_class"]),
+                    tr("اللغة", "Language"): r["language"],
+                    tr("جمع آلي مفعل", "Automated collection enabled"): bool(r["approved_for_automation"]),
+                    tr("ملاحظات", "Notes"): r["notes"],
+                } for r in registry], width="stretch", hide_index=True)
+            with st.expander(tr("إضافة مصدر للمراجعة", "Register a source for review")):
+                with st.form("source_registry_create"):
+                    name = st.text_input(tr("اسم المصدر", "Source name"))
+                    source_url = st.text_input(tr("الرابط HTTPS", "HTTPS URL"))
+                    cat = st.selectbox(tr("نوع المصدر", "Source category"), list(category_labels),
+                                       format_func=lambda x: category_labels[x])
+                    lang = st.selectbox(tr("لغة المحتوى", "Content language"),
+                                        ["unknown", "ar", "en", "multilingual"],
+                                        format_func=lambda x: {"unknown":tr("غير معروفة","Unknown"),
+                                                               "ar":tr("العربية","Arabic"),
+                                                               "en":tr("الإنجليزية","English"),
+                                                               "multilingual":tr("متعددة اللغات","Multilingual")}[x])
+                    access = st.selectbox(tr("حالة صلاحية الوصول", "Access permission status"),
+                                           list(access_labels), format_func=lambda x: access_labels[x])
+                    method = st.selectbox(tr("طريقة الوصول المقترحة", "Proposed access method"),
+                                           list(collection_labels), format_func=lambda x: collection_labels[x])
+                    ev_class = st.selectbox(tr("نوع الدليل", "Evidence class"),
+                                             list(evidence_labels), format_func=lambda x: evidence_labels[x])
+                    reg_notes = st.text_area(tr("ملاحظات المصدر وحقوق الوصول", "Source and permission notes"))
+                    submit_reg = st.form_submit_button(tr("حفظ مصدر مرشح دون جمع تلقائي",
+                                                         "Save candidate source (no automated collection)"))
+                if submit_reg:
+                    try:
+                        api.create_registry_source(token, user_id, {
+                            "name": name, "url": source_url, "category": cat, "language": lang,
+                            "access_status": access, "collection_method": method,
+                            "evidence_class": ev_class, "notes": reg_notes,
+                        })
+                        st.success(tr("تم تسجيل المصدر للمراجعة دون تفعيل أي جمع آلي.",
+                                      "Source registered for review; no collection enabled."))
+                        st.rerun()
+                    except AtlasAPIError as exc:
+                        st.error(str(exc))
+
             st.subheader(tr("مراجعة سجل", "Review a resource"))
             if all_rows:
                 options = {r["id"]: r for r in all_rows}
