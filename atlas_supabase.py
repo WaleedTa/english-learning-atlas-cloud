@@ -146,3 +146,27 @@ class AtlasClient:
         return self._request("GET", "/rest/v1/atlas_evidence_reviews", token=token,
                              params={"select": "discovery_id,study_design,evidence_quality,outcome_direction,learner_population,intervention,comparator,outcomes,effect_size,limitations,source_checked,review_notes,updated_at",
                                      "order": "updated_at.desc", "limit": str(limit)})
+
+    def list_source_registry(self, token, limit=1000):
+        """Private registry; Supabase RLS checks admin privileges."""
+        return self._request("GET", "/rest/v1/atlas_source_registry", token=token,
+                             params={"select": "id,name,url,category,language,access_status,collection_method,evidence_class,notes,approved_for_automation,created_at",
+                                     "order": "created_at.desc", "limit": str(limit)})
+
+    def create_registry_source(self, token, user_id, fields):
+        """Register a candidate source. No automated collection is enabled."""
+        from urllib.parse import urlparse
+        name = str(fields.get("name") or "").strip()
+        url = str(fields.get("url") or "").strip()
+        parsed = urlparse(url)
+        if not 2 <= len(name) <= 200 or parsed.scheme != "https" or not parsed.hostname:
+            raise AtlasAPIError("A source name and valid HTTPS URL are required")
+        allowed = ("category", "language", "access_status", "collection_method",
+                   "evidence_class", "notes")
+        payload = {"name": name, "url": url, "created_by": user_id,
+                   "approved_for_automation": False}
+        for key in allowed:
+            if key in fields:
+                payload[key] = str(fields[key])[:1500 if key == "notes" else 100]
+        return self._request("POST", "/rest/v1/atlas_source_registry", token=token,
+                             payload=payload, prefer="return=minimal")
