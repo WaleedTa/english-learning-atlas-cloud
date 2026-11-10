@@ -170,3 +170,37 @@ class AtlasClient:
                 payload[key] = str(fields[key])[:1500 if key == "notes" else 100]
         return self._request("POST", "/rest/v1/atlas_source_registry", token=token,
                              payload=payload, prefer="return=minimal")
+
+    def list_experience_evidence(self, token, limit=1000):
+        """Private unapproved real-world evidence entries, protected by RLS."""
+        return self._request("GET", "/rest/v1/atlas_experience_evidence", token=token,
+                             params={"select": "id,source_id,item_url,item_title,evidence_kind,excerpt,original_language,rating,published_on,access_checked,confidence_status,analysis_status,created_at",
+                                     "order": "created_at.desc", "limit": str(limit)})
+
+    def create_experience_evidence(self, token, user_id, source, fields):
+        """Manual capture only: never fetch or scrape a third-party website."""
+        from urllib.parse import urlparse
+        if not source or source.get("access_status") != "permitted":
+            raise AtlasAPIError("Source access must be reviewed and marked permitted first")
+        title = str(fields.get("item_title") or "").strip()
+        excerpt = str(fields.get("excerpt") or "").strip()
+        item_url = str(fields.get("item_url") or "").strip()
+        parsed = urlparse(item_url)
+        if not 2 <= len(title) <= 500 or not 1 <= len(excerpt) <= 1500:
+            raise AtlasAPIError("A title and short source excerpt are required")
+        if parsed.scheme != "https" or not parsed.hostname or len(item_url) > 2000:
+            raise AtlasAPIError("A valid HTTPS evidence URL is required")
+        rating = fields.get("rating")
+        if rating is not None and not 0 <= float(rating) <= 5:
+            raise AtlasAPIError("Rating must be between 0 and 5")
+        payload = {
+            "source_id": source["id"], "created_by": user_id, "item_url": item_url,
+            "item_title": title, "excerpt": excerpt,
+            "evidence_kind": fields["evidence_kind"],
+            "original_language": fields.get("original_language", "unknown"),
+            "rating": rating, "published_on": fields.get("published_on"),
+            "confidence_status": "unverified", "analysis_status": "pending",
+            "access_checked": False,
+        }
+        return self._request("POST", "/rest/v1/atlas_experience_evidence", token=token,
+                             payload=payload, prefer="return=minimal")
