@@ -5,6 +5,7 @@ import json
 import zipfile
 import streamlit as st
 from atlas_supabase import AtlasClient, AtlasAPIError
+from research_taxonomy import tag_inventory, tags_for, label as taxonomy_label, compare_review_groups
 
 st.set_page_config(page_title="English Learning Atlas Cloud", page_icon="🌐", layout="wide")
 
@@ -142,6 +143,20 @@ with admin_tab:
             if discoveries:
                 st.dataframe(discoveries, width="stretch", hide_index=True)
             st.caption(tr("التصنيف أولي؛ لا يُسمح باعتبار هذه السجلات أدلة مثبتة على الفعالية دون مراجعة علمية.", "Classification is preliminary; these records are not validated effectiveness evidence."))
+            with st.expander(tr("قاموس التصنيف العلمي الموحد — استكشاف الوسوم", "Unified scientific taxonomy — explore tags")):
+                st.caption(tr("هذه وسوم مستخرجة أولياً من بيانات المصادر؛ لا تعني إثبات فعالية طريقة تعليمية.",
+                              "These are preliminary discovery metadata tags; they do not establish teaching effectiveness."))
+                for category, ar, en in (("skills", "المهارات", "Skills"),
+                                          ("methods", "الطرق التعليمية", "Teaching methods"),
+                                          ("frameworks", "الأطر المرجعية", "Reference frameworks")):
+                    inventory = tag_inventory(discoveries, category)
+                    st.markdown("**" + tr(ar, en) + "**")
+                    st.dataframe([{
+                        tr("الرمز", "Code"): code,
+                        tr("الاسم", "Name"): taxonomy_label(category, code, LANG),
+                        tr("عدد الاكتشافات", "Discoveries"): count,
+                    } for code, count in inventory], width="stretch", hide_index=True)
+
             if discoveries:
                 st.subheader(tr("التحليل العلمي المنظم", "Structured scientific assessment"))
                 selected_discovery = st.selectbox(tr("اختر اكتشافاً لتحليل أدلته", "Select a discovery for evidence assessment"), discoveries,
@@ -192,6 +207,7 @@ with admin_tab:
             for review in reviews:
                 d = discovery_by_id.get(review["discovery_id"], {})
                 comparison_rows.append({
+                    "discovery_id": review["discovery_id"],
                     "title": d.get("title") or review["discovery_id"],
                     "source": d.get("source") or "",
                     "year": d.get("year"),
@@ -226,12 +242,22 @@ with admin_tab:
                     chosen_design = st.multiselect(tr("تصميم الدراسة", "Study design"),
                         sorted({r["design"] for r in comparison_rows}),
                         format_func=display_code, key="compare_design")
+                skill_inventory = sorted({tag for d in discoveries for tag in tags_for(d, "skills")})
+                method_inventory = sorted({tag for d in discoveries for tag in tags_for(d, "methods")})
+                with st.expander(tr("فلاتر التصنيف المتقدمة", "Advanced taxonomy filters")):
+                    selected_skills = st.multiselect(tr("المهارات التعليمية", "Learning skills"),
+                        skill_inventory, format_func=lambda v: taxonomy_label("skills", v, LANG),
+                        key="compare_skills")
+                    selected_methods = st.multiselect(tr("طرق التعليم", "Teaching methods"),
+                        method_inventory, format_func=lambda v: taxonomy_label("methods", v, LANG),
+                        key="compare_methods")
                 sources = sorted({r["source"] for r in comparison_rows if r["source"]})
                 selected_sources = st.multiselect(tr("المصدر", "Source"), sources, key="compare_source")
                 only_verified = st.checkbox(tr("المصادر المتحقق منها فقط", "Verified sources only"), key="compare_verified")
                 sort_choice = st.selectbox(tr("ترتيب النتائج", "Sort results"),
                     ["recent", "title", "year"], format_func=lambda v: {
                         "recent": tr("حسب ترتيب التقييمات", "Review order"),
+                        "discovery_id": tr("معرف البحث", "Discovery ID"),
                         "title": tr("العنوان", "Title"),
                         "year": tr("السنة الأحدث", "Newest year")}[v], key="compare_sort")
                 needle = search.casefold().strip()
@@ -240,6 +266,10 @@ with admin_tab:
                     and (not chosen_direction or r["direction"] in chosen_direction)
                     and (not chosen_design or r["design"] in chosen_design)
                     and (not selected_sources or r["source"] in selected_sources)
+                    and (not selected_skills or any(tag in selected_skills for tag in
+                        tags_for(discovery_by_id.get(r["discovery_id"], {}), "skills")))
+                    and (not selected_methods or any(tag in selected_methods for tag in
+                        tags_for(discovery_by_id.get(r["discovery_id"], {}), "methods")))
                     and (not only_verified or r["verified"])
                     and (not needle or needle in " ".join(str(r[k]) for k in
                         ("title","source","skills","methods","intervention","population","outcomes")).casefold())]
@@ -297,6 +327,25 @@ with admin_tab:
                                "No matching records. Clear filters or adjust your search."))
                 st.warning(tr("هذه رسوم لعدد التقييمات، وليست قياساً لحجم التأثير أو إثباتاً لفعالية طريقة تعليمية.",
                               "These charts count assessments; they do not measure effect sizes or establish teaching effectiveness."))
+                st.subheader(tr("تجميع الدراسات حسب الطريقة والمهارة", "Study groups by teaching method and skill"))
+                st.caption(tr("تجميع استكشافي بحسب وسوم المصادر الأولية. اختلاف النتائج إشارة للمراجعة، وليس تناقضاً مثبتاً.",
+                              "Exploratory grouping by preliminary metadata tags. Different recorded outcomes flag review, not proven contradiction."))
+                groups = compare_review_groups(discoveries, reviews)
+                group_names = {"insufficient": tr("أدلة غير كافية", "Insufficient evidence"),
+                               "divergent": tr("نتائج مختلفة — تتطلب مراجعة", "Different outcomes — review needed"),
+                               "consistent_recorded": tr("اتجاهات مسجلة متفقة مبدئياً", "Recorded directions provisionally aligned")}
+                if groups:
+                    st.dataframe([{
+                        tr("الطريقة", "Method"): taxonomy_label("methods", g["method"], LANG),
+                        tr("المهارة", "Skill"): taxonomy_label("skills", g["skill"], LANG),
+                        tr("عدد التقييمات", "Assessment count"): g["count"],
+                        tr("تقييمات عالية الجودة", "High-quality assessments"): g["quality_high"],
+                        tr("مصادر متحقق منها", "Verified sources"): g["verified"],
+                        tr("إشارة التحليل", "Analysis signal"): group_names[g["signal"]],
+                    } for g in groups], hide_index=True, width="stretch")
+                else:
+                    st.info(tr("لا توجد مجموعات قابلة للمقارنة حتى الآن.",
+                               "No comparable groups yet."))
             else:
                 st.info(tr("لا توجد تقييمات علمية محفوظة للمقارنة بعد.",
                            "No scientific assessments saved yet."))
