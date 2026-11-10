@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "catalog_status": "research_candidates_not_endorsed",
+  "as_of": "2026-11-10",
+  "projects": [
+    {"slug":"openlingo","name":"OpenLingo","url":"https://github.com/pretzelai/openlingo","focus":["open_source","learning_platform"],"license":"MIT"},
+    {"slug":"freelingo","name":"FreeLingo","url":"https://github.com/ArtCC/freelingo","focus":["learning_platform","practice"],"license":"AGPL-3.0"},
+    {"slug":"sotto","name":"Sotto","url":"https://github.com/affromero/Sotto","focus":["conversation","ai_tutor"],"license":"PolyForm-Noncommercial"},
+    {"slug":"language-learning-resources","name":"Language Learning Resources","url":"https://github.com/eyalev/language-learning-resources","focus":["resource_directory","content_discovery"],"license":"CC-BY-4.0"},
+    {"slug":"adaptive-language-tutor","name":"Adaptive Language Tutor","url":"https://github.com/Navneetsinghnegi/adaptive-language-tutor","focus":["adaptation","ai_tutor"],"license":"unverified"},
+    {"slug":"english-learning-agents","name":"English Learning Agents","url":"https://github.com/ThakuraAnki/English_Learning_Agents","focus":["agents","ai_tutor"],"license":"unverified"},
+    {"slug":"ai-language-tutor","name":"AI Language Tutor","url":"https://github.com/CamiloCortesM/ai-language-tutor","focus":["ai_tutor","conversation"],"license":"unverified"},
+    {"slug":"babblr","name":"Babblr","url":"https://github.com/pkuppens/babblr","focus":["reading","practice"],"license":"unverified"},
+    {"slug":"glosano","name":"Glosano","url":"https://github.com/Glosano/glosano","focus":["vocabulary","reading"],"license":"unverified"},
+    {"slug":"lector","name":"Lector","url":"https://github.com/heuwels/lector","focus":["reading","content_discovery"],"license":"AGPL-3.0"},
+    {"slug":"linguacafe","name":"LinguaCafe","url":"https://github.com/simjanos-dev/LinguaCafe","focus":["reading","vocabulary"],"license":"unverified"},
+    {"slug":"openpronounce","name":"OpenPronounce","url":"https://github.com/Halleck45/OpenPronounce","focus":["pronunciation","speech_technology"],"license":"unverified"},
+    {"slug":"mimora","name":"Mimora","url":"https://github.com/vikonix/Mimora","focus":["pronunciation","speech_technology"],"license":"unverified"},
+    {"slug":"idiomap","name":"Idiomap","url":"https://github.com/JesusOrihuela/idiomap","focus":["vocabulary","practice"],"license":"unverified"},
+    {"slug":"librelingo","name":"LibreLingo","url":"https://github.com/kantord/LibreLingo","focus":["open_source","learning_platform"],"license":"unverified"}
+  ]
+}
